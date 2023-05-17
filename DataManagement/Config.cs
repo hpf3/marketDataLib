@@ -13,20 +13,20 @@ namespace marketDataLib.DataManagement
         public static string Get(string key)
         {
             //if the key exists
-            if (_config.ContainsKey(key))
+            if (_config.TryGetValue(key, out string? value))
             {
                 //return the value
-                return _config[key];
+                return value;
             }
             //if the key does not exist
             else
             {
                 //try to get the value from the database
-                var value = LiteDBManager.GetConfiguration(key);
+                var config = LiteDBManager.GetConfiguration(key);
                 //add the value to the config
-                _config.Add(key, value.Value);
+                _config.Add(key, config.Value);
                 //return the value
-                return value.Value;
+                return config.Value;
             }
         }
         //set a value in the config

@@ -61,7 +61,7 @@ public struct TwelveDataTimeSeriesResponse
     public string Status { get; set; }
 
     //converts the TwelveDataTimeSeriesResponse to a Symbol
-    public DataManagement.Tables.Symbol ToSymbol()
+    public readonly DataManagement.Tables.Symbol ToSymbol()
     {
         return new DataManagement.Tables.Symbol(Meta.ToSymbolMeta(), Values.ConvertAll(v => v.ToSymbolData()));
     }
@@ -84,7 +84,7 @@ public struct TwelveDataMeta
     public string Type { get; set; }
 
     //converts the TwelveDataMeta to a SymbolMeta
-    public DataManagement.Tables.SymbolMeta ToSymbolMeta()
+    public readonly DataManagement.Tables.SymbolMeta ToSymbolMeta()
     {
         return new DataManagement.Tables.SymbolMeta(Symbol, Interval.StringToTimeSpan(), Currency, Exchange, Mic_code, Type);
     }
@@ -105,7 +105,7 @@ public struct TwelveDataValues
     public int Volume { get; set; }
 
     //converts the TwelveDataValues to a SymbolData
-    public DataManagement.Tables.SymbolData ToSymbolData()
+    public readonly DataManagement.Tables.SymbolData ToSymbolData()
     {
         return new DataManagement.Tables.SymbolData(DateTime, Open, High, Low, Close, Volume);
     }

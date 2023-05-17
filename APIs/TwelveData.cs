@@ -12,14 +12,16 @@ public class TwelveData : IWebApi
     public const string ApiEndpoint = "https://api.twelvedata.com";
     public string Name => "TwelveData_"+_config.Interval;
     private int _todayRequests = 0;
-    private int _minuteRequests => _requests.Sum(x => x.cost);
+    private int MinuteRequests => _requests.Sum(x => x.Cost);
     public int RequestLimit => _config.CreditLimitTier.DailyLimit - Interlocked.Add(ref _todayRequests, 0);
-    public int RequestsRemaining => _config.CreditLimitTier.MinuteLimit - _minuteRequests;
+    public int RequestsRemaining => _config.CreditLimitTier.MinuteLimit - MinuteRequests;
     public TimeSpan TimeUntilReset => _config.CreditLimitTier.TimeUntilReset();
     //threadsafe buffer and timer to manage the per minute request count and logging of requests
     private readonly System.Collections.Concurrent.ConcurrentBag<APIRequestRecord> _requests = new();
+    #pragma warning disable IDE0052 // Remove unread private members
     private readonly System.Threading.Timer _timer;
     private readonly System.Timers.Timer _DailyTimer;
+    #pragma warning restore IDE0052 // Remove unread private members
 
     public TwelveData(TwelveDataConfig config)
     {
@@ -43,7 +45,7 @@ public class TwelveData : IWebApi
         while (_requests.TryTake(out var request))
         {
             //increment the number of requests made today using thread safe method
-            System.Threading.Interlocked.Add(ref _todayRequests, request.cost);
+            System.Threading.Interlocked.Add(ref _todayRequests, request.Cost);
             //log the request
             request.LogRequest(Name);
         }
@@ -103,7 +105,7 @@ public class TwelveData : IWebApi
         }
         //if the symbols were not updated today, make a request to the API
         const string MethodUrl = "/stocks";
-        string url = ApiEndpoint + MethodUrl;
+        const string url = ApiEndpoint + MethodUrl;
         var response = await new System.Net.Http.HttpClient().GetAsync(url);
 
         //check if the response returned
@@ -122,7 +124,7 @@ public class TwelveData : IWebApi
             DataManagement.LiteDBManager.CacheAvailableSymbols(filtered, Name);
 
             //return the symbols
-            return filtered.Select(x => new DataManagement.Tables.AvailableSymbol(x, null)).ToList();
+            return filtered.ConvertAll(x => new DataManagement.Tables.AvailableSymbol(x, null));
         }
         else
         {
@@ -130,7 +132,6 @@ public class TwelveData : IWebApi
             throw new System.Net.Http.HttpRequestException("Request failed");
         }
     }
-
     /// <summary>
     /// Gets TimeSeries data for a given symbol
     /// </summary>
@@ -151,31 +152,31 @@ public class TwelveData : IWebApi
         if (start > DateTime.Now)
         {
             //throw an exception
-            throw new ArgumentOutOfRangeException("Start date cannot be after current date");
+            throw new ArgumentOutOfRangeException(nameof(start), "start cannot be after current date");
         }
         //check if the start date is after the end date
         if (start > end)
         {
             //throw an exception
-            throw new ArgumentOutOfRangeException("Start date cannot be after end date");
+            throw new ArgumentOutOfRangeException(nameof(start), $"start cannot be after end{end}");
         }
         //check if the start date is before the earliest date available
         if (start < await GetEarliestDate(symbol))
         {
             //throw an exception
-            throw new ArgumentOutOfRangeException("Start date cannot be before earliest date available");
+            throw new ArgumentOutOfRangeException(nameof(start),"start cannot be before earliest date available");
         }
         //check if the end date is after the latest date available
         if (end > DateTime.Now)
         {
             //throw an exception
-            throw new ArgumentOutOfRangeException("End date cannot be after current date");
+            throw new ArgumentOutOfRangeException(nameof(end),"end cannot be after current date");
         }
         //check if the end date is after the latest date available
         if (end > DateTime.Today.AddDays(-1))
         {
             //throw an exception
-            throw new ArgumentOutOfRangeException("End date cannot be after latest date available");
+            throw new ArgumentOutOfRangeException(nameof(end),"end cannot be after latest date available");
         }
 
         //check if the data is cached
@@ -188,7 +189,7 @@ public class TwelveData : IWebApi
 
         //if the data is not cached, make a request to the API
         const string MethodUrl = "/time_series";
-        string url = ApiEndpoint + MethodUrl + $"?symbol={symbol}&interval={_config.Interval.IntervalToString()}&start_date="+start.ToString("yyyy-MM-dd")+$"&end_date={end.ToString("yyyy-MM-dd")}&apikey={_config.ApiKey}";
+        string url = ApiEndpoint + MethodUrl + $"?symbol={symbol}&interval={_config.Interval.IntervalToString()}&start_date="+start.ToString("yyyy-MM-dd")+$"&end_date={end:yyyy-MM-dd}&apikey={_config.ApiKey}";
         var response = await new System.Net.Http.HttpClient().GetAsync(url);
         _requests.Add(new DataManagement.APIRequestRecord(url, 1, Name));
         //check if the response returned
@@ -214,7 +215,6 @@ public class TwelveData : IWebApi
     /// Gets the available indicators
 }
 
-
 public struct TwelveCreditLimitTier
 {
     //number of requests allowed per day
@@ -234,7 +234,7 @@ public struct TwelveCreditLimitTier
         ResetTime = resetTime;
         this.PlanName = PlanName;
     }
-    public TimeSpan TimeUntilReset()
+    public readonly TimeSpan TimeUntilReset()
     {
         DateTime now = DateTime.Now;
         DateTime reset = new(now.Year, now.Month, now.Day, ResetTime.Hours, ResetTime.Minutes, ResetTime.Seconds);
@@ -246,7 +246,7 @@ public struct TwelveCreditLimitTier
     }
 
     //predefined tiers
-    public static TwelveCreditLimitTier Free = new(800, 8, new TimeSpan(0, 0, 0),"Basic");
+    public static readonly TwelveCreditLimitTier Free = new(800, 8, new TimeSpan(0, 0, 0),"Basic");
 }
 public struct TwelveDataConfig
 {
@@ -277,85 +277,55 @@ public static class TwelveDataIntervalConverter
     //converts the enum to the string used by the API
     public static string IntervalToString(this TwelveDataInterval interval)
     {
-        switch (interval)
+        return interval switch
         {
-            case TwelveDataInterval.OneMin:
-                return "1min";
-            case TwelveDataInterval.FiveMin:
-                return "5min";
-            case TwelveDataInterval.FifteenMin:
-                return "15min";
-            case TwelveDataInterval.ThirtyMin:
-                return "30min";
-            case TwelveDataInterval.FourtyFiveMin:
-                return "45min";
-            case TwelveDataInterval.OneHour:
-                return "1hour";
-            case TwelveDataInterval.OneDay:
-                return "1day";
-            case TwelveDataInterval.OneWeek:
-                return "1week";
-            case TwelveDataInterval.OneMonth:
-                return "1month";
-            default:
-                throw new ArgumentException("Invalid interval");
-        }
+            TwelveDataInterval.OneMin => "1min",
+            TwelveDataInterval.FiveMin => "5min",
+            TwelveDataInterval.FifteenMin => "15min",
+            TwelveDataInterval.ThirtyMin => "30min",
+            TwelveDataInterval.FourtyFiveMin => "45min",
+            TwelveDataInterval.OneHour => "1hour",
+            TwelveDataInterval.OneDay => "1day",
+            TwelveDataInterval.OneWeek => "1week",
+            TwelveDataInterval.OneMonth => "1month",
+            _ => throw new ArgumentException("Invalid interval"),
+        };
     }
 
     //converts the string used by the API to the enum
     public static TwelveDataInterval StringToInterval(this string interval)
     {
-        switch (interval)
+        return interval switch
         {
-            case "1min":
-                return TwelveDataInterval.OneMin;
-            case "5min":
-                return TwelveDataInterval.FiveMin;
-            case "15min":
-                return TwelveDataInterval.FifteenMin;
-            case "30min":
-                return TwelveDataInterval.ThirtyMin;
-            case "45min":
-                return TwelveDataInterval.FourtyFiveMin;
-            case "1hour":
-                return TwelveDataInterval.OneHour;
-            case "1day":
-                return TwelveDataInterval.OneDay;
-            case "1week":
-                return TwelveDataInterval.OneWeek;
-            case "1month":
-                return TwelveDataInterval.OneMonth;
-            default:
-                throw new ArgumentException("Invalid interval");
-        }
+            "1min" => TwelveDataInterval.OneMin,
+            "5min" => TwelveDataInterval.FiveMin,
+            "15min" => TwelveDataInterval.FifteenMin,
+            "30min" => TwelveDataInterval.ThirtyMin,
+            "45min" => TwelveDataInterval.FourtyFiveMin,
+            "1hour" => TwelveDataInterval.OneHour,
+            "1day" => TwelveDataInterval.OneDay,
+            "1week" => TwelveDataInterval.OneWeek,
+            "1month" => TwelveDataInterval.OneMonth,
+            _ => throw new ArgumentException("Invalid interval"),
+        };
     }
 
     //converts the enum to a TimeSpan
     public static TimeSpan IntervalToTimeSpan(this TwelveDataInterval interval)
     {
-        switch (interval)
+        return interval switch
         {
-            case TwelveDataInterval.OneMin:
-                return new TimeSpan(0, 1, 0);
-            case TwelveDataInterval.FiveMin:
-                return new TimeSpan(0, 5, 0);
-            case TwelveDataInterval.FifteenMin:
-                return new TimeSpan(0, 15, 0);
-            case TwelveDataInterval.ThirtyMin:
-                return new TimeSpan(0, 30, 0);
-            case TwelveDataInterval.FourtyFiveMin:
-                return new TimeSpan(0, 45, 0);
-            case TwelveDataInterval.OneHour:
-                return new TimeSpan(1, 0, 0);
-            case TwelveDataInterval.OneDay:
-                return new TimeSpan(1, 0, 0, 0);
-            case TwelveDataInterval.OneWeek:
-                return new TimeSpan(7, 0, 0, 0);
-            case TwelveDataInterval.OneMonth:
-                return new TimeSpan(30, 0, 0, 0);
-            default:
-                throw new ArgumentException("Invalid interval");
-        }
+            TwelveDataInterval.OneMin => new TimeSpan(0, 1, 0),
+            TwelveDataInterval.FiveMin => new TimeSpan(0, 5, 0),
+            TwelveDataInterval.FifteenMin => new TimeSpan(0, 15, 0),
+            TwelveDataInterval.ThirtyMin => new TimeSpan(0, 30, 0),
+            TwelveDataInterval.FourtyFiveMin => new TimeSpan(0, 45, 0),
+            TwelveDataInterval.OneHour => new TimeSpan(1, 0, 0),
+            TwelveDataInterval.OneDay => new TimeSpan(1, 0, 0, 0),
+            TwelveDataInterval.OneWeek => new TimeSpan(7, 0, 0, 0),
+            TwelveDataInterval.OneMonth => new TimeSpan(30, 0, 0, 0),
+            _ => throw new ArgumentException("Invalid interval"),
+        };
     }
     //converts the TimeSpan to the enum
     public static TwelveDataInterval TimeSpanToInterval(this TimeSpan interval)
@@ -405,28 +375,18 @@ public static class TwelveDataIntervalConverter
     //converts string to TimeSpan
     public static TimeSpan StringToTimeSpan(this string interval)
     {
-        switch (interval)
+        return interval switch
         {
-            case "1min":
-                return new TimeSpan(0, 1, 0);
-            case "5min":
-                return new TimeSpan(0, 5, 0);
-            case "15min":
-                return new TimeSpan(0, 15, 0);
-            case "30min":
-                return new TimeSpan(0, 30, 0);
-            case "45min":
-                return new TimeSpan(0, 45, 0);
-            case "1hour":
-                return new TimeSpan(1, 0, 0);
-            case "1day":
-                return new TimeSpan(1, 0, 0, 0);
-            case "1week":
-                return new TimeSpan(7, 0, 0, 0);
-            case "1month":
-                return new TimeSpan(30, 0, 0, 0);
-            default:
-                throw new ArgumentException("Invalid interval");
-        }
+            "1min" => new TimeSpan(0, 1, 0),
+            "5min" => new TimeSpan(0, 5, 0),
+            "15min" => new TimeSpan(0, 15, 0),
+            "30min" => new TimeSpan(0, 30, 0),
+            "45min" => new TimeSpan(0, 45, 0),
+            "1hour" => new TimeSpan(1, 0, 0),
+            "1day" => new TimeSpan(1, 0, 0, 0),
+            "1week" => new TimeSpan(7, 0, 0, 0),
+            "1month" => new TimeSpan(30, 0, 0, 0),
+            _ => throw new ArgumentException("Invalid interval"),
+        };
     }
 }

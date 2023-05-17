@@ -11,44 +11,40 @@ namespace marketDataLib.Tools
         public static string GetResponse(string url)
         {
             //start a httpclient
-            using (var client = new System.Net.Http.HttpClient())
+            using var client = new System.Net.Http.HttpClient();
+            //send a get request to the url
+            var response = client.GetAsync(url).Result;
+            //if the response is successful
+            if (response.IsSuccessStatusCode)
             {
-                //send a get request to the url
-                var response = client.GetAsync(url).Result;
-                //if the response is successful
-                if (response.IsSuccessStatusCode)
-                {
-                    //return the response as a string
-                    return response.Content.ReadAsStringAsync().Result;
-                }
-                //if the response is not successful
-                else
-                {
-                    //throw an exception
-                    throw new Exception("Request failed");
-                }
+                //return the response as a string
+                return response.Content.ReadAsStringAsync().Result;
+            }
+            //if the response is not successful
+            else
+            {
+                //throw an exception
+                throw new Exception("Request failed");
             }
         }
         //run a web request and return the response:POST
         public static string PostResponse(string url, string data)
         {
             //start a httpclient
-            using (var client = new System.Net.Http.HttpClient())
+            using var client = new System.Net.Http.HttpClient();
+            //send a post request to the url
+            var response = client.PostAsync(url, new System.Net.Http.StringContent(data)).Result;
+            //if the response is successful
+            if (response.IsSuccessStatusCode)
             {
-                //send a post request to the url
-                var response = client.PostAsync(url, new System.Net.Http.StringContent(data)).Result;
-                //if the response is successful
-                if (response.IsSuccessStatusCode)
-                {
-                    //return the response as a string
-                    return response.Content.ReadAsStringAsync().Result;
-                }
-                //if the response is not successful
-                else
-                {
-                    //throw an exception
-                    throw new Exception("Request failed");
-                }
+                //return the response as a string
+                return response.Content.ReadAsStringAsync().Result;
+            }
+            //if the response is not successful
+            else
+            {
+                //throw an exception
+                throw new Exception("Request failed");
             }
         }
     }
