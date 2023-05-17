@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>6f0c5003-9cd9-4f41-9298-13b1bea2edf0</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LiteDB" Version="5.0.16" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+</Project>
